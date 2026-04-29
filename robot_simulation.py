@@ -25,17 +25,30 @@ class InputShaper:
         self.k = k
         self.t1 = t1
         self.t2 = t2
-        self.A1 = 1/(1+k)
-        self.A2 = k/(1+k)
         self.Tc = Tc
         self.omega_d = omega_d
 
 
-    def calcolo_reference(self, original_ref, t, array_old_ref):
+    def calcolo_reference_zv(self, original_ref, t, array_old_ref):
 
+        A1 = 1/(1+k)
+        A2 = k/(1+k)
         index_t2 = len(array_old_ref) - int((math.pi/self.omega_d)/self.Tc)
         if index_t2 >= 0:
-            ref = self.A1 * original_ref + self.A2 * array_old_ref[index_t2]
+            ref = A1 * original_ref + A2 * array_old_ref[index_t2]
+        else:
+            ref = original_ref
+        return ref
+
+    def calcolo_reference_zvd(self, original_ref, t, array_old_ref):
+
+        A1 = 1 / math.pow((1 + k),2)
+        A2 = 2*k / math.pow((1 + k),2)
+        A3 = math.pow(k,2) / math.pow((1 + k),2)
+        index_t2 = len(array_old_ref) - int((math.pi / self.omega_d) / self.Tc)
+        index_t3 = len(array_old_ref) - int((2*math.pi / self.omega_d) / self.Tc)
+        if index_t2 >= 0 and index_t3 >= 0:
+            ref = A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
         else:
             ref = original_ref
         return ref
@@ -43,7 +56,8 @@ class InputShaper:
 xi = 0
 k= math.exp((-xi*math.pi) / math.sqrt(1-math.pow(xi,2)))
 t1 = 0
-omega_d = 3.7942
+#omega_d = 3.7942 Val originale
+omega_d = 3.8
 
 #=====================================================================
 
@@ -119,7 +133,7 @@ while ml.depending_instructions():
 
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
-    reference_shaper = Shaper.calcolo_reference(reference, actual_time, reference_signal)
+    reference_shaper = Shaper.calcolo_reference_zv(reference, actual_time, reference_signal)
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
