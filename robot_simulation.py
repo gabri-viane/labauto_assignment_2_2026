@@ -12,9 +12,40 @@ from labauto import MuJoCoMechanicalSystem
 from labauto import TrapezoidalMotionLaw
 from labauto import loadController
 from labauto import loadInstructions
+import math #Aggiunta per avere istruzioni di calcolo più semplici
 
 model_name = "crane"  # folder containing model.xml + control_config.yaml + motion program
 program_name = "test_trj1"
+
+#=====================================================================
+
+class InputShaper:
+    def __init__(self,xi,k, t1,t2, Tc, omega_d):
+        self.xi = xi
+        self.k = k
+        self.t1 = t1
+        self.t2 = t2
+        self.A1 = 1/(1+k)
+        self.A2 = k/(1+k)
+        self.Tc = Tc
+        self.omega_d = omega_d
+
+
+    def calcolo_reference(self, original_ref, t, array_old_ref):
+
+        index_t2 = len(array_old_ref) - int((math.pi/self.omega_d)/self.Tc)
+        if index_t2 >= 0:
+            ref = self.A1 * original_ref + self.A2 * array_old_ref[index_t2]
+        else:
+            ref = original_ref
+        return ref
+
+xi = 0
+k= math.exp((-xi*math.pi) / math.sqrt(1-math.pow(xi,2)))
+t1 = 0
+omega_d = 3.7942
+
+#=====================================================================
 
 # Load controller parameters and dynamic parameters
 with open(f'{model_name}/control_config.yaml', 'r') as file:
@@ -32,6 +63,8 @@ dof = robot.get_input_number()
 
 # Set the cycle time (sampling time) for motion law updates
 Tc = robot.get_sampling_period()
+print(Tc)
+Shaper = InputShaper(xi,k,t1, math.pi/omega_d, Tc, omega_d)
 
 # Load the tuned controller using parameters from YAML
 decentralized_ctrl=loadController(Tc,controller_params,dynamic_params,model_name)
@@ -85,10 +118,12 @@ while ml.depending_instructions():
     target_DDq_is = target_DDq[0]
 
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
+
+    reference_shaper = Shaper.calcolo_reference(reference, actual_time, reference_signal)
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
-    joint_torque = decentralized_ctrl.compute_control_action(reference, measured_output, feedforward_action)
+    joint_torque = decentralized_ctrl.compute_control_action(reference_shaper, measured_output, feedforward_action)
     robot.write_actuator_value(joint_torque)
 
     # Store data (before stepping)
@@ -98,6 +133,8 @@ while ml.depending_instructions():
     reference_signal.append(reference)
     link_position.append(robot.link_position())
     actual_time += Tc
+
+
 
     # Step MuJoCo
     robot.simulate()
@@ -149,8 +186,6 @@ fig1 = make_subplots(
 )
 
 for i, a in enumerate(labels):
-    col = i + 1
-
     # Position
     fig1.add_trace(go.Scatter(x=t, y=joint_position[:, i], name=f"q_{a}", legendgroup=f"pos_{a}"),
                    row=1, col=col)
