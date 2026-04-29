@@ -31,8 +31,8 @@ class InputShaper:
 
     def calcolo_reference_zv(self, original_ref, t, array_old_ref):
 
-        A1 = 1/(1+k)
-        A2 = k/(1+k)
+        A1 = 1/(1+self.k)
+        A2 = k/(1+self.k)
         index_t2 = len(array_old_ref) - int((math.pi/self.omega_d)/self.Tc)
         if index_t2 >= 0:
             ref = A1 * original_ref + A2 * array_old_ref[index_t2]
@@ -42,9 +42,9 @@ class InputShaper:
 
     def calcolo_reference_zvd(self, original_ref, t, array_old_ref):
 
-        A1 = 1 / math.pow((1 + k),2)
-        A2 = 2*k / math.pow((1 + k),2)
-        A3 = math.pow(k,2) / math.pow((1 + k),2)
+        A1 = 1 / math.pow((1 + self.k),2)
+        A2 = 2*self.k / math.pow((1 + self.k),2)
+        A3 = math.pow(self.k,2) / math.pow((1 + self.k),2)
         index_t2 = len(array_old_ref) - int((math.pi / self.omega_d) / self.Tc)
         index_t3 = len(array_old_ref) - int((2*math.pi / self.omega_d) / self.Tc)
         if index_t2 >= 0 and index_t3 >= 0:
@@ -133,7 +133,7 @@ while ml.depending_instructions():
 
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
-    reference_shaper = Shaper.calcolo_reference_zv(reference, actual_time, reference_signal)
+    reference_shaper = Shaper.calcolo_reference_zvd(reference, actual_time, reference_signal)
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
