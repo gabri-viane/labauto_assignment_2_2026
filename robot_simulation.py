@@ -15,7 +15,7 @@ from labauto import loadInstructions
 import math #Aggiunta per avere istruzioni di calcolo più semplici
 
 model_name = "crane"  # folder containing model.xml + control_config.yaml + motion program
-program_name = "test_trj1_copy"
+program_name = "test_trj1"
 
 #=====================================================================
 
@@ -33,31 +33,40 @@ class InputShaper:
 
         A1 = 1/(1+self.k)
         A2 = k/(1+self.k)
+        if len(array_old_ref) == 0:
+            array_old_ref = [original_ref]
         index_t2 = len(array_old_ref) - int((math.pi/self.omega_d)/self.Tc)
+        if index_t2 < 0: index_t2 = 0
         if index_t2 >= 0:
             ref = A1 * original_ref + A2 * array_old_ref[index_t2]
         else:
             ref = original_ref
-        return ref
+        return float(ref)
 
     def calcolo_reference_zvd(self, original_ref, t, array_old_ref):
 
         A1 = 1 / math.pow((1 + self.k),2)
         A2 = 2*self.k / math.pow((1 + self.k),2)
         A3 = math.pow(self.k,2) / math.pow((1 + self.k),2)
+        if len(array_old_ref) == 0:
+            array_old_ref = [original_ref]
         index_t2 = len(array_old_ref) - int((math.pi / self.omega_d) / self.Tc)
+        if index_t2<0: index_t2 = 0
         index_t3 = len(array_old_ref) - int((2*math.pi / self.omega_d) / self.Tc)
+        if index_t3 < 0: index_t3 = 0
 
-        if index_t2 >= 0 and index_t3 >= 0:
+
+
+        if index_t2 >= 0 and index_t3 >= 0: #Questa è la parte canata!!!!!
             ref = A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
         else:
             ref = original_ref
-        return ref
+        return float(ref)
 
-xi = 0
+xi = 0.08
 k= math.exp((-xi*math.pi) / math.sqrt(1-math.pow(xi,2)))
 t1 = 0
-omega_d = 7
+omega_d = 3.86
 
 
 #=====================================================================
@@ -123,6 +132,7 @@ decentralized_ctrl.starting(initial_reference, measured_output, joint_torque, fe
 # Simulation loop
 t, measured_signal, control_action, reference_signal, link_position = [], [], [], [], []
 actual_time = 0.0
+reference_signal_pos,reference_signal_vel,reference_signal_acc = [],[],[]
 
 while ml.depending_instructions():
     loop_t0 = time.perf_counter()
@@ -134,8 +144,10 @@ while ml.depending_instructions():
 
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
-    reference_shaper = reference
-    #reference_shaper = Shaper.calcolo_reference_zv(reference, actual_time, reference_signal)
+    #reference_shaper = reference
+    reference_shaper = np.array([Shaper.calcolo_reference_zv(reference[0], actual_time, reference_signal_pos),
+                        Shaper.calcolo_reference_zv(reference[1], actual_time,  reference_signal_vel),
+                        Shaper.calcolo_reference_zv(reference[2], actual_time,  reference_signal_acc)])
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
@@ -147,6 +159,9 @@ while ml.depending_instructions():
     measured_signal.append(measured_output)
     control_action.append(joint_torque)
     reference_signal.append(reference)
+    reference_signal_pos.append(reference[0])
+    reference_signal_vel.append(reference[1])
+    reference_signal_acc.append(reference[2])
     link_position.append(robot.link_position())
     actual_time += Tc
 
