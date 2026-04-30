@@ -20,6 +20,7 @@ program_name = "test_trj1"
 #=====================================================================
 
 class InputShaper:
+
     def __init__(self,xi,k, t1,t2, Tc, omega_d):
         self.xi = xi
         self.k = k
@@ -27,41 +28,88 @@ class InputShaper:
         self.t2 = t2
         self.Tc = Tc
         self.omega_d = omega_d
+        self.shiftHalfPeriod = math.pi/(self.omega_d* self.Tc)
+        self.shiftPeriod = 2*self.shiftHalfPeriod
+        self.shiftThirdPeriod = 3*self.shiftHalfPeriod
+        self.shiftHalfPeriod_Index = int(self.shiftHalfPeriod)
+        self.shiftPeriod_Index = int(self.shiftPeriod)
+        self.shiftThirdPeriod_Index = int(self.shiftThirdPeriod)
 
 
     def calcolo_reference_zv(self, original_ref, t, array_old_ref):
-
         A1 = 1/(1+self.k)
-        A2 = k/(1+self.k)
-        if len(array_old_ref) == 0:
-            array_old_ref = [original_ref]
-        index_t2 = len(array_old_ref) - int((math.pi/self.omega_d)/self.Tc)
-        if index_t2 < 0: index_t2 = 0
-        if index_t2 >= 0:
-            ref = A1 * original_ref + A2 * array_old_ref[index_t2]
-        else:
-            ref = original_ref
-        return float(ref)
+        A2 = self.k*A1
+        arr_len = len(array_old_ref)
+        index_t2 = arr_len - self.shiftHalfPeriod_Index
+        if index_t2 < 0:
+            return A1 * original_ref
+        
+        return A1 * original_ref + A2 * array_old_ref[index_t2]
+
+        # A1 = 1/(1+self.k)
+        # A2 = k/(1+self.k)
+        # if len(array_old_ref) == 0:
+        #     array_old_ref = [original_ref]
+        # index_t2 = len(array_old_ref) - int((math.pi/self.omega_d)/self.Tc)
+        # if index_t2 < 0: index_t2 = 0
+        # if index_t2 >= 0:
+        #     ref = A1 * original_ref + A2 * array_old_ref[index_t2]
+        # else:
+        #     ref = original_ref
+        # return float(ref)
 
     def calcolo_reference_zvd(self, original_ref, t, array_old_ref):
-
         A1 = 1 / math.pow((1 + self.k),2)
-        A2 = 2*self.k / math.pow((1 + self.k),2)
-        A3 = math.pow(self.k,2) / math.pow((1 + self.k),2)
-        if len(array_old_ref) == 0:
-            array_old_ref = [original_ref]
-        index_t2 = len(array_old_ref) - int((math.pi / self.omega_d) / self.Tc)
-        if index_t2<0: index_t2 = 0
-        index_t3 = len(array_old_ref) - int((2*math.pi / self.omega_d) / self.Tc)
-        if index_t3 < 0: index_t3 = 0
+        A2 = 2*self.k *A1
+        A3 = self.k* self.k *A1
+        arr_len = len(array_old_ref) 
+        index_t2 = arr_len - self.shiftHalfPeriod_Index
+        index_t3 = arr_len - self.shiftPeriod_Index
 
+        if index_t3 < 0: 
+            if index_t2 < 0:
+                return  A1 * original_ref
+            else:
+                return A1 * original_ref + A2 * array_old_ref[index_t2]
+            
+        return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
 
+        # A1 = 1 / math.pow((1 + self.k),2)
+        # A2 = 2*self.k / math.pow((1 + self.k),2)
+        # A3 = math.pow(self.k,2) / math.pow((1 + self.k),2)
+        # if len(array_old_ref) == 0:
+        #     array_old_ref = [original_ref]
+        # index_t2 = len(array_old_ref) - int((math.pi / self.omega_d) / self.Tc)
+        # if index_t2<0: index_t2 = 0
+        # index_t3 = len(array_old_ref) - int((2*math.pi / self.omega_d) / self.Tc)
+        # if index_t3 < 0: index_t3 = 0
 
-        if index_t2 >= 0 and index_t3 >= 0: #Questa è la parte canata!!!!!
-            ref = A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
-        else:
-            ref = original_ref
-        return float(ref)
+        # if index_t2 >= 0 and index_t3 >= 0: #Questa è la parte canata!!!!!
+        #     ref = A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
+        # else:
+        #     ref = original_ref
+        # return float(ref)
+
+    def calcolo_reference_zvdd(self, original_ref, t, array_old_ref):
+        A1 = 1 / math.pow((1 + self.k),3)
+        A2 = 3*self.k *A1
+        A3 = 3*self.k* self.k *A1
+        A4 = self.k*self.k* self.k *A1
+        arr_len = len(array_old_ref) 
+        index_t2 = arr_len - self.shiftHalfPeriod_Index
+        index_t3 = arr_len - self.shiftPeriod_Index
+        index_t4 = arr_len - self.shiftThirdPeriod_Index
+
+        if index_t4 < 0:
+            if index_t3 < 0: 
+                if index_t2 < 0:
+                    return  A1 * original_ref
+                else:
+                    return A1 * original_ref + A2 * array_old_ref[index_t2]
+            else:
+                return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
+        
+        return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3] + A4 * array_old_ref[index_t4]
 
 xi = 0.08
 k= math.exp((-xi*math.pi) / math.sqrt(1-math.pow(xi,2)))
@@ -145,9 +193,9 @@ while ml.depending_instructions():
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
     #reference_shaper = reference
-    reference_shaper = np.array([Shaper.calcolo_reference_zv(reference[0], actual_time, reference_signal_pos),
-                        Shaper.calcolo_reference_zv(reference[1], actual_time,  reference_signal_vel),
-                        Shaper.calcolo_reference_zv(reference[2], actual_time,  reference_signal_acc)])
+    reference_shaper = np.array([Shaper.calcolo_reference_zvdd(reference[0], actual_time, reference_signal_pos),
+                        Shaper.calcolo_reference_zvdd(reference[1], actual_time,  reference_signal_vel),
+                        Shaper.calcolo_reference_zvdd(reference[2], actual_time,  reference_signal_acc)])
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
