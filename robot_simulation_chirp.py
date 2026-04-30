@@ -92,7 +92,7 @@ f0=0.1
 f1=500.0 # Tc=0.001 Fc=1000Hz, Shannon/Nyquist 500Hz
 A=300.0
 joint_number=0  # array index
-chirp_signal = A*chirp(t, f0=f0, f1=f1, t1=Duration, method='logarithmic')
+chirp_signal = A*chirp(t, f0=f0, f1=f1, t1=Duration, method='linear')
 
 #====================================================================================================
 
