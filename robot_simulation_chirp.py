@@ -3,6 +3,7 @@ import time
 import yaml
 
 from scipy.io import savemat
+from scipy.signal import chirp
 from datetime import datetime
 
 import numpy as np
@@ -60,6 +61,8 @@ t1 = 0
 omega_d = 7
 
 
+
+
 #=====================================================================
 
 # Load controller parameters and dynamic parameters
@@ -78,8 +81,20 @@ dof = robot.get_input_number()
 
 # Set the cycle time (sampling time) for motion law updates
 Tc = robot.get_sampling_period()
-print(Tc)
+#====================================================================================================
 Shaper = InputShaper(xi,k,t1, math.pi/omega_d, Tc, omega_d)
+
+# define chirp
+Duration = 30.0 # seconds
+t = np.arange(0, Duration + Tc, Tc)  # Ensure inclusion of Duration if possible
+
+f0=0.1
+f1=500.0 # Tc=0.001 Fc=1000Hz, Shannon/Nyquist 500Hz
+A=300.0
+joint_number=0  # array index
+chirp_signal = A*chirp(t, f0=f0, f1=f1, t1=Duration, method='logarithmic')
+
+#====================================================================================================
 
 # Load the tuned controller using parameters from YAML
 decentralized_ctrl=loadController(Tc,controller_params,dynamic_params,model_name)
@@ -108,7 +123,8 @@ ml = TrapezoidalMotionLaw(motion_law_params, Tc) # crea legge di moto
 ml.set_initial_condition(q0)
 
 # Define a sequence of motion instructions
-instructions = loadInstructions(f'{model_name}/{program_name}.txt')
+initial_position=[0.0]*dof
+instructions = ["pause: 1", f"move: {initial_position}", "pause: 5"]
 ml.add_instructions(instructions)
 
 # Read the initial force (motor-side actuators)
@@ -120,44 +136,53 @@ print(f"joint_torque={joint_torque}, initial_reference={initial_reference}, meas
 decentralized_ctrl.starting(initial_reference, measured_output, joint_torque, feedforward_action)
 
 
-# Simulation loop
-t, measured_signal, control_action, reference_signal, link_position = [], [], [], [], []
-actual_time = 0.0
-
+#Preposizionamento robot nella posizione indicata
 while ml.depending_instructions():
     loop_t0 = time.perf_counter()
     target_q, target_Dq, target_DDq = ml.compute_motion_law()
-
     target_q_is = target_q[0]
     target_Dq_is = target_Dq[0]
     target_DDq_is = target_DDq[0]
-
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
-
-    reference_shaper = reference
-    #reference_shaper = Shaper.calcolo_reference_zv(reference, actual_time, reference_signal)
     measured_output = robot.read_sensor_value()
-
     # Controller computes desired actuator force (N) for the 3 motor actuators
-    joint_torque = decentralized_ctrl.compute_control_action(reference_shaper, measured_output, feedforward_action)
+    joint_torque = decentralized_ctrl.compute_control_action(reference, measured_output, feedforward_action)
     robot.write_actuator_value(joint_torque)
-
-    # Store data (before stepping)
-    t.append(actual_time)
-    measured_signal.append(measured_output)
-    control_action.append(joint_torque)
-    reference_signal.append(reference)
-    link_position.append(robot.link_position())
-    actual_time += Tc
-
-
-
     # Step MuJoCo
     robot.simulate()
 
     # run close to real-time for teaching demos
     computation_time = time.perf_counter() - loop_t0
     time.sleep(max(0.0, Tc - computation_time))
+
+
+measured_signal, control_action,reference_signal,link_position=  [], [],[],[]
+feedforward_action = np.array([0.0]*dof)
+
+for actual_time,disturbance in zip(t,chirp_signal):
+    #print(f"Tempo: {actual_time}/{t[-1]}")
+    #print(f"Disturbo: {disturbance}")
+    loop_t0 = time.perf_counter()
+    target_q, target_Dq, target_DDq = ml.compute_motion_law()
+    reference = np.concatenate((target_q, target_Dq, target_DDq))
+
+    measured_output = robot.read_sensor_value()
+    feedforward_action[joint_number]= disturbance
+    joint_torque = decentralized_ctrl.compute_control_action(reference, measured_output, feedforward_action)
+    robot.write_actuator_value(joint_torque)
+
+    # Store data
+    measured_signal.append(measured_output)
+    control_action.append(joint_torque)
+    reference_signal.append(reference)
+    link_position.append(robot.link_position())
+
+    robot.simulate()
+
+    # run close to real-time for teaching demos
+    computation_time = time.perf_counter() - loop_t0
+    time.sleep(max(0.0, Tc - computation_time))
+
 
 t = np.array(t)
 measured_signal = np.array(measured_signal)

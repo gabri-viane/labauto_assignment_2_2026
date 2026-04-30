@@ -3,6 +3,7 @@ import time
 import yaml
 
 from scipy.io import savemat
+from scipy.signal import chirp
 from datetime import datetime
 
 import numpy as np
@@ -54,10 +55,10 @@ class InputShaper:
             ref = original_ref
         return ref
 
-xi = 0
+xi = 0.0008
 k= math.exp((-xi*math.pi) / math.sqrt(1-math.pow(xi,2)))
 t1 = 0
-omega_d = 7
+omega_d = 8.876444379
 
 
 #=====================================================================
@@ -123,7 +124,7 @@ decentralized_ctrl.starting(initial_reference, measured_output, joint_torque, fe
 # Simulation loop
 t, measured_signal, control_action, reference_signal, link_position = [], [], [], [], []
 actual_time = 0.0
-
+i = 0
 while ml.depending_instructions():
     loop_t0 = time.perf_counter()
     target_q, target_Dq, target_DDq = ml.compute_motion_law()
@@ -135,13 +136,18 @@ while ml.depending_instructions():
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
     reference_shaper = reference
-    #reference_shaper = Shaper.calcolo_reference_zv(reference, actual_time, reference_signal)
+    #reference_shaper = Shaper.calcolo_reference_zvd(reference, actual_time, reference_signal)
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
     joint_torque = decentralized_ctrl.compute_control_action(reference_shaper, measured_output, feedforward_action)
-    robot.write_actuator_value(joint_torque)
+    if i<4:
+        joint_torque = 100
 
+    else:
+        joint_torque = 0
+    robot.write_actuator_value(joint_torque)
+    i += 1
     # Store data (before stepping)
     t.append(actual_time)
     measured_signal.append(measured_output)
@@ -202,7 +208,7 @@ fig1 = make_subplots(
 )
 
 for i, a in enumerate(labels):
-    col = i + 1
+    col = i+1
     # Position
     fig1.add_trace(go.Scatter(x=t, y=joint_position[:, i], name=f"q_{a}", legendgroup=f"pos_{a}"),
                    row=1, col=col)
@@ -232,7 +238,6 @@ fig1.update_yaxes(showgrid=True)
 
 # --- Errors ---
 position_error = reference_position - joint_position
-max(f"Errore pos max:{position_error}")
 velocity_error = reference_velocity - joint_velocity
 # MAE per axis (x,y,z)
 mae_pos = np.mean(np.abs(position_error), axis=0)   # shape (3,)
