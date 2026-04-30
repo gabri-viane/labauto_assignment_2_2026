@@ -21,13 +21,15 @@ program_name = "test_trj1"
 
 class InputShaper:
 
-    def __init__(self,xi,k, t1,t2, Tc, omega_d):
+    def __init__(self,xi,omega_d, Tc):
+        #Definizione dei parametri del sistema
         self.xi = xi
-        self.k = k
-        self.t1 = t1
-        self.t2 = t2
         self.Tc = Tc
         self.omega_d = omega_d
+        #definizione del parametro K per lo shaper e di Vmax per lo shaper EI
+        self.k = math.exp((-xi*math.pi) / math.sqrt(1-math.pow(xi,2)))
+        self.Vmax = 0.07
+        #Definizione dei tempi di ritardo per le funzioni di input shaping
         self.shiftHalfPeriod = math.pi/(self.omega_d* self.Tc)
         self.shiftPeriod = 2*self.shiftHalfPeriod
         self.shiftThirdPeriod = 3*self.shiftHalfPeriod
@@ -110,10 +112,25 @@ class InputShaper:
                 return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
         
         return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3] + A4 * array_old_ref[index_t4]
+    
+    def calcolo_reference_ei(self, original_ref, t, array_old_ref):
+        A1 = (1+self.Vmax) / math.pow((1 + self.k),2)
+        A2 = 2*self.k *(1-self.Vmax) / math.pow((1 + self.k),2)
+        A3 = self.k* self.k *A1
+        arr_len = len(array_old_ref) 
+        index_t2 = arr_len - self.shiftHalfPeriod_Index
+        index_t3 = arr_len - self.shiftPeriod_Index
+
+        if index_t3 < 0: 
+            if index_t2 < 0:
+                return  A1 * original_ref
+            else:
+                return A1 * original_ref + A2 * array_old_ref[index_t2]
+        
+        return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
+
 
 xi = 0.08
-k= math.exp((-xi*math.pi) / math.sqrt(1-math.pow(xi,2)))
-t1 = 0
 omega_d = 3.86
 
 
@@ -136,7 +153,7 @@ dof = robot.get_input_number()
 # Set the cycle time (sampling time) for motion law updates
 Tc = robot.get_sampling_period()
 print(Tc)
-Shaper = InputShaper(xi,k,t1, math.pi/omega_d, Tc, omega_d)
+Shaper = InputShaper(xi,omega_d, Tc)
 
 # Load the tuned controller using parameters from YAML
 decentralized_ctrl=loadController(Tc,controller_params,dynamic_params,model_name)
@@ -193,9 +210,9 @@ while ml.depending_instructions():
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
     #reference_shaper = reference
-    reference_shaper = np.array([Shaper.calcolo_reference_zvdd(reference[0], actual_time, reference_signal_pos),
-                        Shaper.calcolo_reference_zvdd(reference[1], actual_time,  reference_signal_vel),
-                        Shaper.calcolo_reference_zvdd(reference[2], actual_time,  reference_signal_acc)])
+    reference_shaper = np.array([Shaper.calcolo_reference_ei(reference[0], actual_time, reference_signal_pos),
+                        Shaper.calcolo_reference_ei(reference[1], actual_time,  reference_signal_vel),
+                        Shaper.calcolo_reference_ei(reference[2], actual_time,  reference_signal_acc)])
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
