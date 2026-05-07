@@ -85,12 +85,12 @@ Tc = robot.get_sampling_period()
 Shaper = InputShaper(xi,k,t1, math.pi/omega_d, Tc, omega_d)
 
 # define chirp
-Duration = 30.0 # seconds
+Duration = 120.0 # seconds
 t = np.arange(0, Duration + Tc, Tc)  # Ensure inclusion of Duration if possible
 
-f0=0.1
-f1=500.0 # Tc=0.001 Fc=1000Hz, Shannon/Nyquist 500Hz
-A=300.0
+f0=0.001
+f1=150.0 # Tc=0.001 Fc=1000Hz, Shannon/Nyquist 500Hz
+A=50.0
 joint_number=0  # array index
 chirp_signal = A*chirp(t, f0=f0, f1=f1, t1=Duration, method='linear')
 
@@ -124,7 +124,7 @@ ml.set_initial_condition(q0)
 
 # Define a sequence of motion instructions
 initial_position=[0.0]*dof
-instructions = ["pause: 1", f"move: {initial_position}", "pause: 5"]
+instructions = ["pause: 5"]#, f"move: {initial_position}", "pause: 5"]
 ml.add_instructions(instructions)
 
 # Read the initial force (motor-side actuators)
@@ -152,8 +152,8 @@ while ml.depending_instructions():
     robot.simulate()
 
     # run close to real-time for teaching demos
-    computation_time = time.perf_counter() - loop_t0
-    time.sleep(max(0.0, Tc - computation_time))
+    #computation_time = time.perf_counter() - loop_t0
+    #time.sleep(max(0.0, Tc - computation_time))
 
 
 measured_signal, control_action,reference_signal,link_position=  [], [],[],[]
@@ -162,7 +162,7 @@ feedforward_action = np.array([0.0]*dof)
 for actual_time,disturbance in zip(t,chirp_signal):
     #print(f"Tempo: {actual_time}/{t[-1]}")
     #print(f"Disturbo: {disturbance}")
-    loop_t0 = time.perf_counter()
+    #loop_t0 = time.perf_counter()
     target_q, target_Dq, target_DDq = ml.compute_motion_law()
     reference = np.concatenate((target_q, target_Dq, target_DDq))
 
@@ -180,8 +180,8 @@ for actual_time,disturbance in zip(t,chirp_signal):
     robot.simulate()
 
     # run close to real-time for teaching demos
-    computation_time = time.perf_counter() - loop_t0
-    time.sleep(max(0.0, Tc - computation_time))
+    #computation_time = time.perf_counter() - loop_t0
+    #time.sleep(max(0.0, Tc - computation_time))
 
 
 t = np.array(t)

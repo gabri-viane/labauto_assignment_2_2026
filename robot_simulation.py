@@ -131,7 +131,7 @@ class InputShaper:
 
 
 xi = 0.08
-omega_d = 3.86
+omega_d = 3.9101 #prima avevamo 3.86
 
 
 #=====================================================================
@@ -210,9 +210,9 @@ while ml.depending_instructions():
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
     #reference_shaper = reference
-    reference_shaper = np.array([Shaper.calcolo_reference_ei(reference[0], actual_time, reference_signal_pos),
-                        Shaper.calcolo_reference_ei(reference[1], actual_time,  reference_signal_vel),
-                        Shaper.calcolo_reference_ei(reference[2], actual_time,  reference_signal_acc)])
+    reference_shaper = np.array([Shaper.calcolo_reference_zvd(reference[0], actual_time, reference_signal_pos),
+                        Shaper.calcolo_reference_zvd(reference[1], actual_time,  reference_signal_vel),
+                        Shaper.calcolo_reference_zvd(reference[2], actual_time,  reference_signal_acc)])
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
