@@ -3,6 +3,7 @@ import time
 import yaml
 
 from scipy.io import savemat
+from scipy.signal import chirp
 from datetime import datetime
 
 import numpy as np
@@ -15,129 +16,10 @@ from labauto import loadInstructions
 import math #Aggiunta per avere istruzioni di calcolo più semplici
 
 model_name = "crane"  # folder containing model.xml + control_config.yaml + motion program
-program_name = "test_trj1"
-
-#=====================================================================
-
-class InputShaper:
-
-    def __init__(self,xi,omega_d, Tc):
-        #Definizione dei parametri del sistema
-        self.xi = xi
-        self.Tc = Tc
-        self.omega_d = omega_d
-        #definizione del parametro K per lo shaper e di Vmax per lo shaper EI
-        self.k = math.exp((-xi*math.pi) / math.sqrt(1-math.pow(xi,2)))
-        self.Vmax = 0.07
-        #Definizione dei tempi di ritardo per le funzioni di input shaping
-        self.shiftHalfPeriod = math.pi/(self.omega_d* self.Tc)
-        self.shiftPeriod = 2*self.shiftHalfPeriod
-        self.shiftThirdPeriod = 3*self.shiftHalfPeriod
-        self.shiftHalfPeriod_Index = int(self.shiftHalfPeriod)
-        self.shiftPeriod_Index = int(self.shiftPeriod)
-        self.shiftThirdPeriod_Index = int(self.shiftThirdPeriod)
-
-
-    def calcolo_reference_zv(self, original_ref, t, array_old_ref):
-        A1 = 1/(1+self.k)
-        A2 = self.k*A1
-        arr_len = len(array_old_ref)
-        index_t2 = arr_len - self.shiftHalfPeriod_Index
-        if index_t2 < 0:
-            return A1 * original_ref
-        
-        return A1 * original_ref + A2 * array_old_ref[index_t2]
-
-        # A1 = 1/(1+self.k)
-        # A2 = k/(1+self.k)
-        # if len(array_old_ref) == 0:
-        #     array_old_ref = [original_ref]
-        # index_t2 = len(array_old_ref) - int((math.pi/self.omega_d)/self.Tc)
-        # if index_t2 < 0: index_t2 = 0
-        # if index_t2 >= 0:
-        #     ref = A1 * original_ref + A2 * array_old_ref[index_t2]
-        # else:
-        #     ref = original_ref
-        # return float(ref)
-
-    def calcolo_reference_zvd(self, original_ref, t, array_old_ref):
-        A1 = 1 / math.pow((1 + self.k),2)
-        A2 = 2*self.k *A1
-        A3 = self.k* self.k *A1
-        arr_len = len(array_old_ref) 
-        index_t2 = arr_len - self.shiftHalfPeriod_Index
-        index_t3 = arr_len - self.shiftPeriod_Index
-
-        if index_t3 < 0: 
-            if index_t2 < 0:
-                return  A1 * original_ref
-            else:
-                return A1 * original_ref + A2 * array_old_ref[index_t2]
-            
-        return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
-
-        # A1 = 1 / math.pow((1 + self.k),2)
-        # A2 = 2*self.k / math.pow((1 + self.k),2)
-        # A3 = math.pow(self.k,2) / math.pow((1 + self.k),2)
-        # if len(array_old_ref) == 0:
-        #     array_old_ref = [original_ref]
-        # index_t2 = len(array_old_ref) - int((math.pi / self.omega_d) / self.Tc)
-        # if index_t2<0: index_t2 = 0
-        # index_t3 = len(array_old_ref) - int((2*math.pi / self.omega_d) / self.Tc)
-        # if index_t3 < 0: index_t3 = 0
-
-        # if index_t2 >= 0 and index_t3 >= 0: #Questa è la parte canata!!!!!
-        #     ref = A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
-        # else:
-        #     ref = original_ref
-        # return float(ref)
-
-    def calcolo_reference_zvdd(self, original_ref, t, array_old_ref):
-        A1 = 1 / math.pow((1 + self.k),3)
-        A2 = 3*self.k *A1
-        A3 = 3*self.k* self.k *A1
-        A4 = self.k*self.k* self.k *A1
-        arr_len = len(array_old_ref) 
-        index_t2 = arr_len - self.shiftHalfPeriod_Index
-        index_t3 = arr_len - self.shiftPeriod_Index
-        index_t4 = arr_len - self.shiftThirdPeriod_Index
-
-        if index_t4 < 0:
-            if index_t3 < 0: 
-                if index_t2 < 0:
-                    return  A1 * original_ref
-                else:
-                    return A1 * original_ref + A2 * array_old_ref[index_t2]
-            else:
-                return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
-        
-        return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3] + A4 * array_old_ref[index_t4]
-    
-    def calcolo_reference_ei(self, original_ref, t, array_old_ref):
-        A1 = (1+self.Vmax) / math.pow((1 + self.k),2)
-        A2 = 2*self.k *(1-self.Vmax) / math.pow((1 + self.k),2)
-        A3 = self.k* self.k *A1
-        arr_len = len(array_old_ref) 
-        index_t2 = arr_len - self.shiftHalfPeriod_Index
-        index_t3 = arr_len - self.shiftPeriod_Index
-
-        if index_t3 < 0: 
-            if index_t2 < 0:
-                return  A1 * original_ref
-            else:
-                return A1 * original_ref + A2 * array_old_ref[index_t2]
-        
-        return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
-
-
-xi = 0.08
-omega_d = 3.99 #prima avevamo 3.86
-
-
-#=====================================================================
+program_name = "test_trj1_copy"
 
 # Load controller parameters and dynamic parameters
-with open(f'{model_name}/control_config.yaml', 'r') as file:
+with open(f'{model_name}/control_config_scrauso.yaml', 'r') as file:
     params_yaml = yaml.safe_load(file)
     controller_params = params_yaml['controller']
     dynamic_params = np.array(params_yaml['model_parameters'])
@@ -152,8 +34,18 @@ dof = robot.get_input_number()
 
 # Set the cycle time (sampling time) for motion law updates
 Tc = robot.get_sampling_period()
-print(Tc)
-Shaper = InputShaper(xi,omega_d, Tc)
+
+# define chirp
+Duration = 120.0 # seconds
+t = np.arange(0, Duration + Tc, Tc)  # Ensure inclusion of Duration if possible
+
+f0=0.001
+f1=30.0 # Tc=0.001 Fc=1000Hz, Shannon/Nyquist 500Hz
+A=5.0
+joint_number=0  # array index
+chirp_signal = A*chirp(t, f0=f0, f1=f1, t1=Duration, method='linear')
+
+#====================================================================================================
 
 # Load the tuned controller using parameters from YAML
 decentralized_ctrl=loadController(Tc,controller_params,dynamic_params,model_name)
@@ -182,7 +74,8 @@ ml = TrapezoidalMotionLaw(motion_law_params, Tc) # crea legge di moto
 ml.set_initial_condition(q0)
 
 # Define a sequence of motion instructions
-instructions = loadInstructions(f'{model_name}/{program_name}.txt')
+initial_position=[0.0]*dof
+instructions = ["pause: 5"]#, f"move: {initial_position}", "pause: 5"]
 ml.add_instructions(instructions)
 
 # Read the initial force (motor-side actuators)
@@ -194,50 +87,53 @@ print(f"joint_torque={joint_torque}, initial_reference={initial_reference}, meas
 decentralized_ctrl.starting(initial_reference, measured_output, joint_torque, feedforward_action)
 
 
-# Simulation loop
-t, measured_signal, control_action, reference_signal, link_position = [], [], [], [], []
-actual_time = 0.0
-reference_signal_pos,reference_signal_vel,reference_signal_acc = [],[],[]
-
+#Preposizionamento robot nella posizione indicata
 while ml.depending_instructions():
     loop_t0 = time.perf_counter()
     target_q, target_Dq, target_DDq = ml.compute_motion_law()
-
     target_q_is = target_q[0]
     target_Dq_is = target_Dq[0]
     target_DDq_is = target_DDq[0]
-
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
-
-    reference_shaper = reference
-    reference_shaper = np.array([Shaper.calcolo_reference_zvdd(reference[0], actual_time, reference_signal_pos),
-                        Shaper.calcolo_reference_zvdd(reference[1], actual_time,  reference_signal_vel),
-                        Shaper.calcolo_reference_zvdd(reference[2], actual_time,  reference_signal_acc)])
     measured_output = robot.read_sensor_value()
-
     # Controller computes desired actuator force (N) for the 3 motor actuators
-    joint_torque = decentralized_ctrl.compute_control_action(reference_shaper, measured_output, feedforward_action)
+    joint_torque = decentralized_ctrl.compute_control_action(reference, measured_output, feedforward_action)
     robot.write_actuator_value(joint_torque)
-
-    # Store data (before stepping)
-    t.append(actual_time)
-    measured_signal.append(measured_output)
-    control_action.append(joint_torque)
-    reference_signal.append(reference)
-    reference_signal_pos.append(reference[0])
-    reference_signal_vel.append(reference[1])
-    reference_signal_acc.append(reference[2])
-    link_position.append(robot.link_position())
-    actual_time += Tc
-
-
-
     # Step MuJoCo
     robot.simulate()
 
     # run close to real-time for teaching demos
-    computation_time = time.perf_counter() - loop_t0
-    time.sleep(max(0.0, Tc - computation_time))
+    #computation_time = time.perf_counter() - loop_t0
+    #time.sleep(max(0.0, Tc - computation_time))
+
+
+measured_signal, control_action,reference_signal,link_position=  [], [],[],[]
+feedforward_action = np.array([0.0]*dof)
+
+for actual_time,disturbance in zip(t,chirp_signal):
+    #print(f"Tempo: {actual_time}/{t[-1]}")
+    #print(f"Disturbo: {disturbance}")
+    #loop_t0 = time.perf_counter()
+    target_q, target_Dq, target_DDq = ml.compute_motion_law()
+    reference = np.concatenate((target_q, target_Dq, target_DDq))
+
+    measured_output = robot.read_sensor_value()
+    feedforward_action[joint_number]= disturbance
+    joint_torque = decentralized_ctrl.compute_control_action(reference, measured_output, feedforward_action)
+    robot.write_actuator_value(joint_torque)
+
+    # Store data
+    measured_signal.append(measured_output)
+    control_action.append(joint_torque)
+    reference_signal.append(reference)
+    link_position.append(robot.link_position())
+
+    robot.simulate()
+
+    # run close to real-time for teaching demos
+    #computation_time = time.perf_counter() - loop_t0
+    #time.sleep(max(0.0, Tc - computation_time))
+
 
 t = np.array(t)
 measured_signal = np.array(measured_signal)
