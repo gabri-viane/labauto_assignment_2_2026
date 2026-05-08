@@ -15,7 +15,7 @@ from labauto import loadInstructions
 import math #Aggiunta per avere istruzioni di calcolo più semplici
 
 model_name = "crane"  # folder containing model.xml + control_config.yaml + motion program
-program_name = "test_trj1"
+program_name = "test_trj1_copy"
 
 #=====================================================================
 
@@ -209,10 +209,10 @@ while ml.depending_instructions():
 
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
-    #reference_shaper = reference
-    reference_shaper = np.array([Shaper.calcolo_reference_zvd(reference[0], actual_time, reference_signal_pos),
-                        Shaper.calcolo_reference_zvd(reference[1], actual_time,  reference_signal_vel),
-                        Shaper.calcolo_reference_zvd(reference[2], actual_time,  reference_signal_acc)])
+    reference_shaper = reference
+    reference_shaper = np.array([Shaper.calcolo_reference_zvdd(reference[0], actual_time, reference_signal_pos),
+                        Shaper.calcolo_reference_zvdd(reference[1], actual_time,  reference_signal_vel),
+                        Shaper.calcolo_reference_zvdd(reference[2], actual_time,  reference_signal_acc)])
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
