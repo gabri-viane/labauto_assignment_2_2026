@@ -130,7 +130,7 @@ class InputShaper:
         return A1 * original_ref + A2 * array_old_ref[index_t2] + A3 * array_old_ref[index_t3]
 
 
-xi = 0.08
+xi = 1.5133e-04 #prima avevamo 0.08
 omega_d = 3.99 #prima avevamo 3.86
 
 
