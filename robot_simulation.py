@@ -274,7 +274,7 @@ labels = ["x"]
 
 # --- Figure 1: position / velocity / control (3x3) ---
 fig1 = make_subplots(
-    rows=3, cols=3,
+    rows=1, cols=3,
     shared_xaxes=True,
     subplot_titles=[f"Position {a}" for a in labels] +
                    [f"Velocity {a}" for a in labels] +
@@ -282,24 +282,24 @@ fig1 = make_subplots(
 )
 
 for i, a in enumerate(labels):
-    col = i + 1
+    row = i + 1
     # Position
     fig1.add_trace(go.Scatter(x=t, y=joint_position[:, i], name=f"q_{a}", legendgroup=f"pos_{a}"),
-                   row=1, col=col)
+                   row=row, col=1)
     fig1.add_trace(go.Scatter(x=t, y=reference_position[:, i], name=f"qref_{a}",
                               legendgroup=f"pos_{a}", line=dict(dash="dash")),
-                   row=1, col=col)
+                   row=row, col=1)
 
     # Velocity
     fig1.add_trace(go.Scatter(x=t, y=joint_velocity[:, i], name=f"dq_{a}", legendgroup=f"vel_{a}"),
-                   row=2, col=col)
+                   row=row, col=1)
     fig1.add_trace(go.Scatter(x=t, y=reference_velocity[:, i], name=f"dqref_{a}",
                               legendgroup=f"vel_{a}", line=dict(dash="dash")),
-                   row=2, col=col)
+                   row=row, col=1)
 
     # Control
     fig1.add_trace(go.Scatter(x=t, y=control_action[:, i], name=f"F_{a}", legendgroup=f"u_{a}"),
-                   row=3, col=col)
+                   row=row, col=1)
 
 fig1.update_xaxes(title_text="Time (s)", row=3, col=2)
 fig1.update_layout(
