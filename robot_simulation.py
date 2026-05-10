@@ -210,9 +210,9 @@ while ml.depending_instructions():
     reference = np.array([target_q_is, target_Dq_is, target_DDq_is])
 
     reference_shaper = reference
-    reference_shaper = np.array([Shaper.calcolo_reference_zvdd(reference[0], actual_time, reference_signal_pos),
-                        Shaper.calcolo_reference_zvdd(reference[1], actual_time,  reference_signal_vel),
-                        Shaper.calcolo_reference_zvdd(reference[2], actual_time,  reference_signal_acc)])
+    reference_shaper = np.array([Shaper.calcolo_reference_zvd(reference[0], actual_time, reference_signal_pos),
+                        Shaper.calcolo_reference_zvd(reference[1], actual_time,  reference_signal_vel),
+                        Shaper.calcolo_reference_zvd(reference[2], actual_time,  reference_signal_acc)])
     measured_output = robot.read_sensor_value()
 
     # Controller computes desired actuator force (N) for the 3 motor actuators
@@ -292,16 +292,18 @@ for i, a in enumerate(labels):
 
     # Velocity
     fig1.add_trace(go.Scatter(x=t, y=joint_velocity[:, i], name=f"dq_{a}", legendgroup=f"vel_{a}"),
-                   row=row, col=1)
+                   row=row, col=2)
     fig1.add_trace(go.Scatter(x=t, y=reference_velocity[:, i], name=f"dqref_{a}",
                               legendgroup=f"vel_{a}", line=dict(dash="dash")),
-                   row=row, col=1)
+                   row=row, col=2)
 
     # Control
     fig1.add_trace(go.Scatter(x=t, y=control_action[:, i], name=f"F_{a}", legendgroup=f"u_{a}"),
-                   row=row, col=1)
+                   row=row, col=3)
 
-fig1.update_xaxes(title_text="Time (s)", row=3, col=2)
+fig1.update_xaxes(title_text="Time (s)", row=1, col=1)
+fig1.update_xaxes(title_text="Time (s)", row=1, col=2)
+fig1.update_xaxes(title_text="Time (s)", row=1, col=3)
 fig1.update_layout(
     title="Tracking: position / velocity / control",
     height=900, width=1200,
